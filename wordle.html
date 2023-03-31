@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Wordle Solver</title>
+	<style>
+		body, * { font-family: Trebuchet,sans-serif;}
+		div.guess input {
+			width: 62px;
+			height: 62px;
+			border: solid 1px #ccc;
+			font-size: 32px;
+			line-height: 32px;
+			text-transform: uppercase;
+			text-align: center;
+		}
+		.container { display: inline-block; margin-bottom: 30px; }
+		.state {
+			display: inline-block;
+			width: 17px;
+			height: 32px;
+			border: solid 1px #eee;
+			opacity: 0.2;
+			cursor: pointer;
+		}
+		.state:hover { opacity: 0.5; }
+		.state.selected { opacity: 1.0; }
+		.black  { background-color: #2C2C2E; color: #fff; }
+		.yellow { background-color: #A68F2E; color: #fff; }
+		.green  { background-color: #447C3D; color: #fff; }
+		a.btn { 
+			display: inline-block; 
+			margin-left: 20px; 
+			padding: 5px; 
+			text-align: center; 
+			vertical-align: middle; 
+			color: #888; 
+			text-decoration: none; 
+			font-size: 24px;
+			border: solid 1px #ddd;
+			border-radius: 5px;
+			background-color: #eee;
+		}
+		a.btn:hover { 
+			color: #222; 
+			border-color: #222;
+		}
+	</style>
+</head>
+<body>
+	<div style="margin: 0px auto; width: 800px;">
+
+		<h2>Wordle Solver</h2>
+		<div id="guesses"></div>
+		<a class="btn" style="width: 300px;" href="javascript:addGuess();">Add Guess</a>
+
+		<h3 style="margin-top: 100px;">
+			possible solutions &mdash; 
+			<span id="solutions-length"></span>
+			<a class="btn" style="width: 32px; height: 32px;" href="javascript:updateSolutions();">↺</a>
+		</h3>
+		<textarea id="solutions" style="height:400px;width:300px;font-family:'Courier New', Courier, monospace; font-size: 22px;border:solid 1px #ccc; border-radius: 5px; padding: 15px; " readonly></textarea>
+	</div>
+
+	<!-- 
+			<span id="container-1" class="container">
+				<input id="letter-1" type="text" maxlength="1" /><br/>
+				<input id="state-1" type="hidden" /> state: black, yellow, green
+				<span class="state black"></span>
+				<span class="state yellow"></span>
+				<span class="state green"></span>
+			</span>
+	-->
+
+
+	<script>
+		let viewState = {
+			wordList: [],
+			blacks: [],
+			yellows: [],
+			greens: [],
+			solutionList: [],
+			guesses: 0
+		};
+
+		const addGuess = () => {
+			viewState.guesses++;
+			const guess = document.createElement('div');
+			guess.id = `guess-${viewState.guesses}`;
+			guess.number = viewState.guesses;
+			guess.classList.add('guess');
+			document.querySelector('#guesses').appendChild(guess);
+			setupLetters(guess);
+		};
+
+		const setupLetters = (guess) => {
+			for (let i = 1; i <= 5; i++) {
+				// container for letter
+				const container = document.createElement('span');
+				container.id = `guess-${guess.number}-container-${i}`;
+				container.classList.add('container');
+				guess.appendChild(container);
+
+				// input for letter
+				const letter = document.createElement('input');
+				letter.id = `guess-${guess.number}-letter-${i}`;
+				letter.setAttribute('type', 'text');
+				letter.setAttribute('maxlength', '1');
+				letter.addEventListener('keyup', (e) => {
+					if (e.target.value.length == 1 && e.key != 'Shift' && e.key != 'Tab') {
+						if (i < 5) {
+							const nextInput = document.getElementById(`guess-${guess.number}-letter-${i+1}`);
+							nextInput.focus();
+						}
+					}
+				});
+
+				container.appendChild(letter);
+
+				// break
+				container.appendChild(document.createElement('br'));
+
+				// hidden for state
+				const state = document.createElement('input');
+				state.id = `guess-${viewState.guesses}-state-${i}`;
+				state.setAttribute('type', 'hidden');
+				container.appendChild(state);
+
+				// states
+				const black = document.createElement('span');
+				const yellow = document.createElement('span');
+				const green = document.createElement('span');
+
+				black.classList.add('state');
+				black.classList.add('black');
+				black.addEventListener('click', (e) => {
+					letter.classList.add('black');
+					letter.classList.remove('yellow');
+					letter.classList.remove('green');
+
+					black.classList.add('selected');
+					yellow.classList.remove('selected');
+					green.classList.remove('selected');
+
+					state.value = 'BLACK';
+				});
+				container.appendChild(black);
+
+				yellow.classList.add('state');
+				yellow.classList.add('yellow');
+				yellow.addEventListener('click', (e) => {
+					letter.classList.remove('black');
+					letter.classList.add('yellow');
+					letter.classList.remove('green');
+
+					black.classList.remove('selected');
+					yellow.classList.add('selected');
+					green.classList.remove('selected');
+
+					state.value = 'YELLOW';
+				});
+				container.appendChild(yellow);
+
+				green.classList.add('state');
+				green.classList.add('green');
+				green.addEventListener('click', (e) => {
+					letter.classList.remove('black');
+					letter.classList.remove('yellow');
+					letter.classList.add('green');
+
+					black.classList.remove('selected');
+					yellow.classList.remove('selected');
+					green.classList.add('selected');
+					
+					state.value = 'GREEN';
+				});
+				container.appendChild(green);
+			}
+		};
+
+		const loadWordList = () => {
+			// get word list and display in possible solutions
+			const rawFile = new XMLHttpRequest();
+			rawFile.open('GET', './dictionary-wordle.txt', true);
+			rawFile.onreadystatechange = () => {
+				if (rawFile.readyState === 4) {
+					viewState.wordList = rawFile.responseText.split('\n');
+					viewState.solutionList = [...viewState.wordList];
+					updateSolutionBindings();
+				}
+			}
+			rawFile.send();			
+		};
+
+		const updateSolutions = () => {
+			// summarize what we know across all guesses
+			for (let g = 1; g <= viewState.guesses; g++) {
+				for (let l = 1; l <= 5; l++) {
+					const letter = document.querySelector(`#guess-${g}-letter-${l}`);
+					const state = document.querySelector(`#guess-${g}-state-${l}`);
+					if (state.value.toUpperCase() == 'BLACK') {
+						viewState.blacks.push({ char: letter.value, pos: l });
+					}
+					else if (state.value.toUpperCase() == 'YELLOW') {
+						viewState.yellows.push({ char: letter.value, pos: l });
+					}
+					else if (state.value.toUpperCase() == 'GREEN') {
+						viewState.greens.push({ char: letter.value, pos: l });
+					}
+				}
+			}
+
+			console.log('viewState:', viewState);
+
+			viewState.solutionList = viewState.wordList.filter(word => {
+				// filter out words containing any black letters
+				for (const b of viewState.blacks) {
+					if (word.includes(b.char.toLowerCase())) return false;
+				}
+
+				// filter out words that do not contain yellow letters, or where position of letter is this one
+				for (const y of viewState.yellows) {
+					if (!word.includes(y.char.toLowerCase())) return false;
+					if (word[y.pos - 1] == y.char.toLowerCase()) return false;
+				}
+
+				// filter out words that do not contain green letters in correct position
+				for (const g of viewState.greens) {
+					if (word[g.pos -1] != g.char.toLowerCase()) return false;
+				}
+
+				return true;
+			});
+
+
+
+			// show remaining solutions
+			updateSolutionBindings();
+		};
+
+		const updateSolutionBindings = () => {
+			document.querySelector('#solutions').value = viewState.solutionList.join('\n');
+			document.querySelector('#solutions-length').innerText = Number(viewState.solutionList.length).toLocaleString();
+		}
+
+		// setup events
+		window.addEventListener('DOMContentLoaded', () => {
+			addGuess();
+			loadWordList();
+		});
+	</script>
+
+</body>
+</html>

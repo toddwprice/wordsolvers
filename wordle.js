@@ -12,7 +12,23 @@ if (!guess || guess.length != 5) {
     GUESS = '_', 'a', 'A'
       _ is unknown
       a is known
-      A is known position`);
+      A is known position
+  
+  First guesses:
+    SLATE
+    CRANE
+    TRACE
+    SLANT
+    CRATE
+    CARTE
+
+  Second guesses:
+    DEMON
+    MOLDY
+    MONTH
+    MODEL
+    MELON
+  `);
   exit(1);
 }
 
